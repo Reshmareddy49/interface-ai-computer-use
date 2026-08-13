@@ -1,170 +1,365 @@
-# Computer-Use Automation System
+# Interface AI – Computer-Use Automation
 
-A focused end-to-end implementation for the interface.ai take-home project. The system uses an LLM for **discovery**, converts the successful run into a typed capability artifact, then uses a **deterministic replay engine** with no LLM in the decision loop.
+This project is a small implementation of a computer-use automation system for a local banking application.
 
-The target is a local, intentionally plain member-servicing application. It is safe to run and contains synthetic data only.
+The system uses an LLM to discover browser workflows and saves successful workflows as reusable capability artifacts. These artifacts can then be replayed deterministically without calling the LLM again.
 
-## What is implemented
+For this demo, the system works with a local banking application containing synthetic member data.
 
-- Goal + target input.
-- Genuine LLM-driven observe → decide → act discovery loop.
-- Browser computer-use surface using Playwright screenshots + visible controls.
-- Typed, versioned capability artifact with inputs, outputs, locator strategy, checkpoints, risk, and action policy.
-- Deterministic replay with no LLM calls.
-- Stable semantic locator strategy with fallback support.
-- Business outcomes separated from failures (`member_not_found`, `validation_error`).
-- Recoverable waits/retries and hard-failure reporting.
-- Allowlisted origin and action types.
-- Screenshot evidence and structured discovery/replay logs.
-- Human handoff seam that pauses the same Playwright page/session and accepts bounded operator commands before resuming.
-- Design discussion for legacy web, desktop surfaces, tenant/version reuse, and drift.
-- Tests for schema, policy, and target behavior.
-
-## Project layout
+## Project Structure
 
 ```text
-.
+interface-computer-use/
 ├── agent/
-│   ├── browser.py       # Observe and browser actions
-│   ├── discover.py      # LLM discovery + artifact recording
-│   ├── llm.py           # OpenAI-compatible LLM adapter
-│   ├── operator.py      # Minimal human handoff console
-│   └── policy.py        # Safety allowlist
-├── app/main.py          # Local synthetic banking target
-├── artifacts/           # Generated capability artifacts
-├── evidence/            # Discovery/replay evidence
-├── models/              # Artifact/result contracts
-├── replay/engine.py     # Deterministic production path
+│   ├── browser.py
+│   ├── discover.py
+│   ├── llm.py
+│   ├── operator.py
+│   └── policy.py
+├── app/
+│   └── main.py
+├── artifacts/
+│   └── member_lookup_savings_balance.json
+├── models/
+│   ├── artifact.py
+│   └── result.py
+├── replay/
+│   └── engine.py
+├── target_app/
 ├── tests/
+├── .env.example
+├── README.md
 ├── REPORT.md
-└── requirements.txt
-```
+├── requirements.txt
+└── pytest.ini
+The evidence/ directory is generated during discovery and replay and is excluded from Git.
 
-## Setup
+Requirements
+Python 3.13
+Playwright
+Chromium
+OpenAI API key for LLM discovery
 
-### 1. Python environment
+The project uses synthetic/local banking data only.
 
-Python 3.11+ is recommended.
+Setup
 
-```bash
-python -m venv .venv
+Clone the repository:
+
+git clone https://github.com/Reshmareddy49/interface-ai-computer-use.git
+cd interface-ai-computer-use
+
+Create and activate the virtual environment:
+
+python3 -m venv .venv
 source .venv/bin/activate
+
+Install dependencies:
+
 pip install -r requirements.txt
-python -m playwright install chromium
 
-If Chromium is already installed on your machine, set `CHROMIUM_PATH` to its executable path. The code defaults to `/usr/bin/chromium` in Linux environments where that binary exists.
-```
+Install Playwright Chromium:
 
-On Windows PowerShell:
+playwright install chromium
 
-```powershell
-python -m venv .venv
-.venv\\Scripts\\Activate.ps1
-pip install -r requirements.txt
-python -m playwright install chromium
+Create the environment file:
 
-If Chromium is already installed on your machine, set `CHROMIUM_PATH` to its executable path. The code defaults to `/usr/bin/chromium` in Linux environments where that binary exists.
-```
-
-### 2. Start the target application
-
-```bash
-uvicorn app.main:app --host 127.0.0.1 --port 8000
-```
-
-Open `http://127.0.0.1:8000/` if you want to inspect the target manually.
-
-### 3. Configure the LLM
-
-Copy `.env.example` to `.env` and provide your own model API key. The discovery path intentionally requires a real model API call because the assignment explicitly asks for at least one genuine LLM-driven run.
-
-```bash
 cp .env.example .env
-```
 
-Then load the environment in your shell, for example:
+Open .env:
 
-```bash
-export OPENAI_API_KEY="YOUR_KEY"
-export OPENAI_MODEL="gpt-4.1-mini"
-```
+nano .env
 
-Never commit `.env`.
+Add your OpenAI API key:
 
-## Exact demo path
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-4.1-mini
+OPENAI_BASE_URL=https://api.openai.com/v1
 
-### Discovery
+ALLOWED_ORIGINS=http://127.0.0.1:8000,http://localhost:8000
+MAX_AGENT_STEPS=12
+AGENT_TIMEOUT_SECONDS=90
 
-With the target server running:
+Never commit .env to Git.
 
-```bash
-python -m agent.discover \
-  --goal "Look up member {{member_id}} and read their current savings balance" \
-  --target "http://127.0.0.1:8000/" \
-  --member-id "12345"
-```
+Verify Installation
 
-The successful run creates:
+Compile the project:
 
-```text
-artifacts/member_lookup_savings_balance.json
-evidence/discovery-<session>/discovery_decisions.json
-evidence/discovery-<session>/discovery_events.json
-evidence/discovery-<session>/discovery_result.json
-evidence/discovery-<session>/step-*.png
-```
+python -m py_compile agent/discover.py agent/llm.py agent/browser.py models/artifact.py replay/engine.py
 
-The generated artifact is the reusable capability. It is decoupled from the raw LLM transcript.
+Run the tests:
 
-### Deterministic replay
-
-```bash
-python -m replay.engine artifacts/member_lookup_savings_balance.json --member-id 12345
-```
-
-No LLM is called by replay.
-
-### Exceptional-state replay
-
-Use a member that does not exist:
-
-```bash
-python -m replay.engine artifacts/member_lookup_savings_balance.json --member-id 99999
-```
+pytest -q
 
 Expected result:
 
-```text
-status = business_outcome
-business_outcome = member_not_found
-```
+6 passed
+Run the Local Application
 
-This is deliberately not reported as a crash: `member_not_found` is an expected business result for a caller.
+Start the local demo application:
 
-## Human handoff demo
+python -m app.main
 
-The discovery agent can return `escalate` when it cannot safely proceed. It writes an intervention request containing the session ID, current URL, screenshot, reason, and allowed operator actions.
+The application runs at:
 
-Use the displayed command:
+http://127.0.0.1:8000/
 
-```bash
-python -m agent.operator --session <SESSION_ID> --fill-label "Member number" --value "12345"
-python -m agent.operator --session <SESSION_ID> --click "Search"
-python -m agent.operator --session <SESSION_ID> --resume
-```
+Keep the application running while using discovery or replay.
 
-The commands are bounded and are executed by the waiting discovery process against the same Playwright page. This is intentionally a minimal operator seam rather than a full co-browsing product.
+Open another terminal and activate the environment:
 
-## Tests
+cd interface-computer-use
+source .venv/bin/activate
+Run AI Discovery
 
-```bash
+Discovery uses the LLM to observe the browser and decide the next action.
+
+Run:
+
+python -m agent.discover \
+  --goal "Look up member 12345 and read their current savings balance" \
+  --target "http://127.0.0.1:8000/" \
+  --member-id "12345"
+
+A successful run creates:
+
+artifacts/member_lookup_savings_balance.json
+
+The artifact contains the reusable browser actions, locators, inputs, outputs, and checkpoint information.
+
+The member ID is parameterized as:
+
+{{member_id}}
+
+This allows the same capability to be reused for different members.
+
+Replay
+
+Replay the saved capability without using the LLM:
+
+python -m replay.engine artifacts/member_lookup_savings_balance.json --member-id "12345"
+
+Example result:
+
+{
+  "status": "success",
+  "capability_id": "member.lookup.savings_balance",
+  "outputs": {
+    "savings_balance": "$8421.17"
+  },
+  "business_outcome": null,
+  "error_code": null,
+  "failed_step": null,
+  "expected": null,
+  "observed": null,
+  "message": "Deterministic replay completed and checkpoint verified."
+}
+
+The same artifact can be reused with other member IDs:
+
+python -m replay.engine artifacts/member_lookup_savings_balance.json --member-id "54321"
+
+python -m replay.engine artifacts/member_lookup_savings_balance.json --member-id "11111"
+
+Local test results:
+
+12345 -> $8421.17
+54321 -> $1598.42
+11111 -> $0.00
+
+The replay process does not call the LLM.
+
+Discovery vs Replay
+
+Discovery:
+
+Natural Language Goal
+        ↓
+Browser Observation
+        ↓
+LLM Decision
+        ↓
+Playwright Action
+        ↓
+Successful Workflow
+        ↓
+Capability Artifact
+
+Replay:
+
+Input Parameters
+        ↓
+Capability Artifact
+        ↓
+Deterministic Replay Engine
+        ↓
+Playwright
+        ↓
+Output Extraction
+        ↓
+Checkpoint Verification
+        ↓
+Structured Result
+
+The LLM is used to discover a workflow. Once the workflow is saved, the same workflow can be executed deterministically.
+
+Safety
+
+The project is designed for a local banking demo.
+
+Only synthetic banking data is used.
+The policy layer restricts browser actions.
+Allowed URLs are checked before navigation.
+The artifact records allowed action types.
+Human handoff is available when the agent cannot safely continue.
+.env is excluded from Git.
+Runtime evidence is excluded from Git.
+
+Do not use real banking credentials or real customer information with this project.
+
+Human Handoff
+
+If the discovery agent cannot safely determine the next action, it can stop and request human intervention.
+
+The handoff can record:
+
+Session ID
+Current URL
+Screenshot
+Reason for stopping
+Allowed operator actions
+
+The operator module can be inspected with:
+
+python -m agent.operator --help
+Evidence
+
+Discovery and replay generate local evidence.
+
+View generated evidence:
+
+find evidence -maxdepth 2 -type f -print
+
+Find discovery decisions:
+
+find evidence -name "discovery_decisions.json" -print
+
+View the most recent discovery decisions:
+
+ls -lt evidence/*/discovery_decisions.json
+
+Replay results are stored under directories similar to:
+
+evidence/replay-<SESSION_ID>/
+
+The evidence directory is intentionally excluded from Git.
+
+Current Validation
+
+The project currently passes:
+
+6 passed
+
+Replay has been successfully tested with:
+
+12345 -> $8421.17
+54321 -> $1598.42
+11111 -> $0.00
+
+Each successful replay returned:
+
+status: success
+
+and:
+
+Deterministic replay completed and checkpoint verified.
+Limitations
+
+This is currently a proof-of-concept focused on one local browser application.
+
+Current limitations include:
+
+One local demo application
+LLM discovery requires an OpenAI API key
+UI changes may require a new discovery run
+Locator fallback strategies can be improved
+Browser failure recovery can be improved
+Human handoff is command-line based
+Business outcome handling can be expanded
+Artifact versioning can be improved
+Replay testing can be expanded
+Production authentication and authorization are not implemented
+Production monitoring is not implemented
+This project is not intended for real banking systems
+Future Improvements
+
+Possible next steps:
+
+Improve locator fallback strategies.
+Add stronger browser error recovery.
+Add artifact versioning.
+Expand business outcome handling.
+Build a web interface for human handoff.
+Add replay metrics and monitoring.
+Add more automated tests.
+Add support for additional web applications.
+Add Docker support.
+Add CI/CD with automated testing.
+Add stronger audit logging and security controls.
+Quick Commands
+
+Setup:
+
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+playwright install chromium
+cp .env.example .env
+
+Start application:
+
+python -m app.main
+
+Run tests:
+
 pytest -q
-```
 
-## Safety
+Run discovery:
 
-The default policy only permits the local demo origin and safe browser actions. Risky/irreversible actions are not in the action allowlist. Secrets are environment variables only. Synthetic member data is used; the artifact and logs should not contain credentials, tokens, or full PII.
+python -m agent.discover \
+  --goal "Look up member 12345 and read their current savings balance" \
+  --target "http://127.0.0.1:8000/" \
+  --member-id "12345"
 
-## Limitations / honest cut line
+Replay:
 
-The implementation does not attempt to build queues, a production operator co-browsing UI, native desktop automation, or multi-tenant infrastructure. Those are intentionally kept behind the surface adapter / operator seams and are described in `REPORT.md`. The discovery run requires the evaluator's own model API key.
+python -m replay.engine artifacts/member_lookup_savings_balance.json --member-id "12345"
+
+Check Git:
+
+git status
+
+Commit README changes:
+
+git add README.md
+git commit -m "Update README"
+git push
+Project Status
+
+The core workflow is working:
+
+Natural Language Goal
+        ↓
+LLM Browser Discovery
+        ↓
+Capability Artifact
+        ↓
+Deterministic Replay
+        ↓
+Output Extraction
+        ↓
+Checkpoint Verification
+        ↓
+Structured Result
+The project demonstrates how an LLM can discover a browser workflow once and convert that workflow into a reusable deterministic capability.
