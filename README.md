@@ -272,14 +272,13 @@ Each successful replay returned:
 status: success
 
 and:
-
 Deterministic replay completed and checkpoint verified.
+
 Limitations
 
 This is currently a proof-of-concept focused on one local browser application.
 
 Current limitations include:
-
 One local demo application
 LLM discovery requires an OpenAI API key
 UI changes may require a new discovery run
@@ -292,10 +291,9 @@ Replay testing can be expanded
 Production authentication and authorization are not implemented
 Production monitoring is not implemented
 This project is not intended for real banking systems
+
 Future Improvements
-
 Possible next steps:
-
 Improve locator fallback strategies.
 Add stronger browser error recovery.
 Add artifact versioning.
