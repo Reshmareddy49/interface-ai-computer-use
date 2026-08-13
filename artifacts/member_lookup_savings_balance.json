@@ -1,0 +1,118 @@
+{
+  "schema_version": "1.0",
+  "capability_id": "member.lookup.savings_balance",
+  "name": "Look up member savings balance",
+  "description": "Look up member 12345 and read their current savings balance",
+  "surface": "browser",
+  "target_origin": "http://127.0.0.1:8000",
+  "version": 1,
+  "inputs": {
+    "member_id": {
+      "type": "string",
+      "required": true,
+      "description": "Member number"
+    }
+  },
+  "outputs": {
+    "savings_balance": {
+      "type": "string",
+      "description": "Value extracted from savings-balance"
+    }
+  },
+  "steps": [
+    {
+      "id": "step-00",
+      "action": "navigate",
+      "target": {
+        "strategy": "url",
+        "value": "http://127.0.0.1:8000/",
+        "fallbacks": [],
+        "description": "Local demo application"
+      },
+      "value_template": null,
+      "output_name": null,
+      "output_type": null,
+      "risk": "safe",
+      "timeout_ms": 10000,
+      "retryable": false,
+      "rationale": "Open the target application before replaying the recorded workflow"
+    },
+    {
+      "id": "step-01",
+      "action": "fill",
+      "target": {
+        "strategy": "id",
+        "value": "member_number",
+        "fallbacks": [],
+        "description": ""
+      },
+      "value_template": "{{member_id}}",
+      "output_name": null,
+      "output_type": null,
+      "risk": "safe",
+      "timeout_ms": 10000,
+      "retryable": false,
+      "rationale": "Enter member number 12345 to search for the member"
+    },
+    {
+      "id": "step-02",
+      "action": "click",
+      "target": {
+        "strategy": "text",
+        "value": "Search",
+        "fallbacks": [],
+        "description": ""
+      },
+      "value_template": "",
+      "output_name": null,
+      "output_type": null,
+      "risk": "safe",
+      "timeout_ms": 10000,
+      "retryable": true,
+      "rationale": "Submit the member number 12345 to search for the member details"
+    },
+    {
+      "id": "step-03",
+      "action": "extract",
+      "target": {
+        "strategy": "id",
+        "value": "savings-balance",
+        "fallbacks": [],
+        "description": ""
+      },
+      "value_template": null,
+      "output_name": "savings_balance",
+      "output_type": "string",
+      "risk": "safe",
+      "timeout_ms": 10000,
+      "retryable": false,
+      "rationale": "Extract the current savings balance for member 12345"
+    }
+  ],
+  "checkpoint": {
+    "type": "text",
+    "locator": {
+      "strategy": "text",
+      "value": "Member record loaded successfully",
+      "fallbacks": [],
+      "description": ""
+    },
+    "expected": "Member record loaded successfully",
+    "description": "Member detail page loaded successfully"
+  },
+  "allowed_actions": [
+    "navigate",
+    "fill",
+    "click",
+    "extract",
+    "wait",
+    "assert"
+  ],
+  "approval_state": "approved",
+  "created_at": "2026-08-13T17:17:14.702625+00:00",
+  "metadata": {
+    "discovery_goal": "Look up member 12345 and read their current savings balance",
+    "recorded_from": "genuine LLM-driven run",
+    "surface_notes": "server-rendered browser UI"
+  }
+}

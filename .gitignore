@@ -1,0 +1,10 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+playwright-report/
+test-results/
+.evidence-runtime/
+.DS_Store
+evidence/
